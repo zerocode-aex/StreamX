@@ -1,1 +1,367 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>StreamX Premium</title>
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 500: '#E50914', 600: '#b20710' },
+                        dark: { 900: '#000000', 800: '#0a0a0a', 700: '#1a1a1a' } // Pitch Black Theme
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    animation: { 'fade-in': 'fadeIn 0.5s ease-out' },
+                    keyframes: { fadeIn: { '0%': { opacity: 0 }, '100%': { opacity: 1 } } }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap');
+        body { background-color: #000000; -webkit-tap-highlight-color: transparent; overflow: hidden; user-select: none; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .poster-aspect { aspect-ratio: 2/3; }
+        .active-tap:active { transform: scale(0.96); transition: transform 0.1s; }
+        /* Ultra Dark Glass */
+        .glass { background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(20px); border-top: 1px solid rgba(255, 255, 255, 0.05); }
+        .glass-card { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.03); }
+        
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%; background: #E50914; margin-top: -5px; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; }
+    </style>
+</head>
+<body class="text-white h-screen w-screen relative font-sans bg-black">
 
+    <!-- SPLASH SCREEN -->
+    <div id="splash" class="fixed inset-0 z-[100] bg-black flex items-center justify-center transition-opacity duration-700">
+        <div class="text-center">
+            <h1 class="text-6xl font-black text-brand-500 tracking-tighter animate-pulse drop-shadow-2xl">STREAM<span class="text-white">X</span></h1>
+            <p id="loading-text" class="text-gray-500 text-xs mt-4 font-mono">Loading Assets...</p>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="app-container" class="flex flex-col h-full hidden">
+        <main id="main-content" class="flex-1 overflow-y-auto hide-scrollbar pb-24 scroll-smooth">
+            
+            <!-- HOME -->
+            <div id="page-home" class="animate-fade-in">
+                <!-- Hero with Smart Fallback -->
+                <div class="relative h-[65vh] w-full group">
+                    <img id="hero-img" src="" class="absolute inset-0 w-full h-full object-cover transition duration-1000" alt="Hero">
+                    <div class="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black"></div>
+                    <div class="absolute bottom-0 left-0 right-0 p-6 flex flex-col items-center text-center space-y-4 pb-10">
+                        <div class="flex gap-2">
+                            <span class="px-2 py-0.5 bg-brand-600 text-[10px] font-bold rounded uppercase tracking-wider shadow-lg shadow-brand-600/20">Featured</span>
+                            <span class="px-2 py-0.5 bg-white/10 backdrop-blur text-[10px] font-bold rounded uppercase tracking-wider border border-white/10">4K HDR</span>
+                        </div>
+                        <h1 id="hero-title" class="text-4xl md:text-5xl font-black leading-tight drop-shadow-2xl mt-2 text-white">Loading...</h1>
+                        <p id="hero-meta" class="text-gray-400 text-xs font-medium tracking-wide">...</p>
+                        <div class="flex gap-4 w-full max-w-sm mt-4">
+                            <button onclick="App.openDetails(App.state.heroId)" class="flex-1 bg-white text-black py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 active-tap shadow-lg shadow-white/10">
+                                <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Play Now
+                            </button>
+                            <button onclick="App.addToWatchlist(App.state.heroId)" class="flex-1 bg-white/5 backdrop-blur border border-white/10 text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 active-tap hover:bg-white/10">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg> My List
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trending -->
+                <div class="pl-6 mt-2 relative z-10">
+                    <h3 class="text-lg font-bold mb-3 text-white flex items-center gap-2">Trending Now <span class="text-brand-500 text-xs">●</span></h3>
+                    <div id="trending-row" class="flex gap-4 overflow-x-auto hide-scrollbar pb-6 pr-6 snap-x min-h-[180px]"></div>
+                </div>
+
+                <!-- Library -->
+                <div class="pl-6 mt-2">
+                    <h3 class="text-lg font-bold mb-3 text-white">Recently Added</h3>
+                    <div id="new-row" class="flex gap-4 overflow-x-auto hide-scrollbar pb-6 pr-6 snap-x min-h-[180px]"></div>
+                </div>
+            </div>
+
+            <!-- WATCHLIST -->
+            <div id="page-watchlist" class="hidden pt-14 px-6 min-h-screen">
+                <h2 class="text-2xl font-black mb-6">My List</h2>
+                <div id="watchlist-grid" class="grid grid-cols-3 gap-3"></div>
+                <div id="watchlist-empty" class="hidden flex flex-col items-center justify-center mt-32 opacity-50">
+                    <p class="text-gray-500 font-medium">Your list is empty</p>
+                </div>
+            </div>
+
+            <!-- SEARCH -->
+            <div id="page-search" class="hidden pt-14 px-4 min-h-screen">
+                <div class="sticky top-0 bg-black z-20 pb-4">
+                    <input type="text" onkeyup="App.handleSearch(this.value)" placeholder="Search movies, series..." class="w-full bg-[#111] border border-white/5 rounded-2xl py-3.5 pl-4 pr-4 text-white focus:outline-none focus:border-brand-500 transition-colors">
+                </div>
+                <div id="search-results" class="grid grid-cols-2 md:grid-cols-3 gap-4 pb-24 animate-fade-in"></div>
+            </div>
+
+            <!-- PROFILE -->
+            <div id="page-profile" class="hidden pt-16 px-6 min-h-screen">
+                <div class="flex items-center gap-5 mb-10">
+                    <div class="w-24 h-24 rounded-full bg-gradient-to-tr from-brand-500 to-purple-900 p-[2px]">
+                        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" class="w-full h-full rounded-full bg-black">
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-black text-white">StreamX User</h2>
+                        <div class="flex items-center gap-2 mt-1"><span class="px-2 py-0.5 rounded bg-brand-600/20 text-brand-500 text-[10px] font-bold uppercase border border-brand-500/20">Premium</span></div>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <button class="w-full glass-card p-4 rounded-xl flex items-center justify-between active-tap">
+                        <span class="font-bold text-sm text-gray-200">Account Settings</span>
+                        <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </button>
+                    <button class="w-full glass-card p-4 rounded-xl flex items-center justify-between active-tap">
+                        <span class="font-bold text-sm text-gray-200">App Settings</span>
+                        <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </button>
+                    <button class="w-full glass-card p-4 rounded-xl flex items-center justify-between active-tap">
+                        <span class="font-bold text-sm text-gray-200">Help & Support</span>
+                        <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </button>
+                    <button onclick="location.reload()" class="w-full p-4 rounded-xl flex items-center justify-center text-red-500 font-bold border border-red-500/10 mt-8 active-tap hover:bg-red-500/5 transition">Log Out</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- BOTTOM NAV -->
+        <nav class="fixed bottom-0 w-full glass pb-safe pt-3 px-2 z-40 rounded-t-3xl shadow-[0_-20px_50px_rgba(0,0,0,0.9)]">
+            <div class="flex justify-around items-center max-w-lg mx-auto">
+                <button onclick="App.nav('home')" class="nav-btn group flex flex-col items-center gap-1 p-2 text-brand-500" data-target="home"><svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg><span class="text-[10px] font-bold">Home</span></button>
+                <button onclick="App.nav('watchlist')" class="nav-btn group flex flex-col items-center gap-1 p-2 text-gray-600" data-target="watchlist"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg><span class="text-[10px] font-bold">My List</span></button>
+                <button onclick="App.nav('search')" class="nav-btn group flex flex-col items-center gap-1 p-2 text-gray-600" data-target="search"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg><span class="text-[10px] font-bold">Search</span></button>
+                <button onclick="App.nav('profile')" class="nav-btn group flex flex-col items-center gap-1 p-2 text-gray-600" data-target="profile"><div class="w-6 h-6 rounded-full bg-gray-800 overflow-hidden border border-transparent"><img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" class="w-full h-full"></div><span class="text-[10px] font-bold">Profile</span></button>
+            </div>
+        </nav>
+    </div>
+
+    <!-- DETAILS MODAL -->
+    <div id="detail-modal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/90 backdrop-blur-md transition-opacity" onclick="App.closeDetails()"></div>
+        <div class="absolute bottom-0 left-0 right-0 h-[85vh] bg-[#050505] rounded-t-3xl overflow-y-auto animate-slide-up shadow-[0_-20px_60px_rgba(0,0,0,1)] border-t border-white/5">
+            <div class="sticky top-0 z-20 flex justify-center pt-3 pb-1 bg-gradient-to-b from-black/80 to-transparent pointer-events-none"><div class="w-12 h-1.5 bg-white/20 rounded-full"></div></div>
+            <button onclick="App.closeDetails()" class="absolute top-4 right-4 z-30 p-2 bg-black/50 rounded-full text-white pointer-events-auto"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+            <div class="relative">
+                <div class="w-full h-72 relative">
+                    <img id="detail-img" src="" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/40 to-transparent"></div>
+                </div>
+                <div class="px-6 -mt-16 relative z-10">
+                    <h1 id="detail-title" class="text-3xl font-black leading-none mb-2 drop-shadow-xl text-white">Title</h1>
+                    <div class="flex items-center gap-3 text-sm text-gray-400 font-medium mb-6">
+                        <span class="text-green-500 font-bold">98% Match</span>
+                        <span id="detail-genre" class="px-2 py-0.5 border border-gray-700 rounded text-[10px] bg-gray-800"></span>
+                        <span class="px-2 py-0.5 border border-gray-700 rounded text-[10px] bg-gray-800">4K</span>
+                    </div>
+                    <button id="detail-play-btn" class="w-full bg-white text-black py-4 rounded-xl font-black text-lg flex items-center justify-center gap-2 active-tap mb-3 shadow-lg shadow-white/5"><svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Play</button>
+                    <button id="detail-list-btn" class="w-full bg-[#1a1a1a] text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 active-tap mb-8 border border-white/5"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> Add to My List</button>
+                    <p class="text-gray-400 leading-relaxed text-sm mb-6">Experience the ultimate cinematic journey. Stream movies and TV shows anytime, anywhere.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PLAYER -->
+    <div id="video-player-modal" class="hidden fixed inset-0 z-[60] bg-black">
+        <video id="main-video" class="w-full h-full object-contain"></video>
+        <div id="player-ui" class="absolute inset-0 flex flex-col justify-between p-6 bg-gradient-to-b from-black/90 via-transparent to-black/90">
+            <div class="flex justify-between items-center">
+                <button onclick="App.closePlayer()" class="p-2 rounded-full bg-white/10 backdrop-blur"><svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                <h4 id="player-title" class="font-bold text-gray-200">Title</h4><div class="w-8"></div>
+            </div>
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <button id="play-pause-btn" class="pointer-events-auto p-4 rounded-full bg-black/50 backdrop-blur text-white opacity-0 hover:opacity-100 transition"><svg class="w-12 h-12 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+            </div>
+            <div>
+                <input type="range" id="seek-bar" min="0" max="100" value="0" class="w-full mb-4">
+                <div class="flex justify-between text-xs font-mono text-gray-400"><span id="curr-time">0:00</span><span id="dur-time">0:00</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST -->
+    <div id="toast" class="fixed top-8 left-1/2 -translate-x-1/2 bg-white text-black px-6 py-3 rounded-full font-bold shadow-2xl z-[70] transition-all duration-300 opacity-0 -translate-y-10 flex items-center gap-2 pointer-events-none">
+        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg><span id="toast-msg">Success</span>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // CONFIG (UNCHANGED)
+        const firebaseConfig = {
+            apiKey: "AIzaSyDkoUvs0zEASUHr3kqb62x-Om-1BU8TpG4",
+            authDomain: "streamxwebapp.firebaseapp.com",
+            databaseURL: "https://streamxwebapp-default-rtdb.firebaseio.com",
+            projectId: "streamxwebapp",
+            storageBucket: "streamxwebapp.firebasestorage.app",
+            messagingSenderId: "719075384251",
+            appId: "1:719075384251:web:831dbe68833029c9b7c29e"
+        };
+
+        let db;
+        try { const app = initializeApp(firebaseConfig); db = getFirestore(app); } catch(e) { console.error(e); }
+
+        window.App = {
+            state: { movies: [], heroId: null, watchlist: JSON.parse(localStorage.getItem('ott_watchlist') || '[]') },
+
+            init: async () => {
+                if(!db) { alert("Config Error"); return; }
+                try {
+                    const snap = await getDocs(collection(db, "movies"));
+                    App.state.movies = [];
+                    snap.forEach(d => App.state.movies.push({id: d.id, ...d.data()}));
+                } catch(e) { console.error(e); }
+
+                setTimeout(() => {
+                    document.getElementById('splash').style.opacity = '0';
+                    setTimeout(() => { document.getElementById('splash').style.display = 'none'; document.getElementById('app-container').classList.remove('hidden'); }, 500);
+                }, 1500);
+
+                App.renderHome();
+                App.renderWatchlist();
+            },
+
+            // SMART IMAGE FIXER
+            fixImage: (img, type = 'poster', genre = 'movie') => {
+                // If the user's link breaks, this loads a high-quality relevant image from Unsplash API
+                // Using keywords based on genre to make it look real
+                const keywords = type === 'backdrop' ? `${genre},cinema,dark,4k` : `${genre},movie,poster`;
+                const width = type === 'backdrop' ? 1920 : 600;
+                const height = type === 'backdrop' ? 1080 : 900;
+                // Using a random sig to ensure different images for different cards
+                img.src = `https://source.unsplash.com/${width}x${height}/?${keywords}&sig=${Math.random()}`;
+                
+                // Fallback if Unsplash Source is slow/down (Static reliable backup)
+                img.onerror = () => {
+                    img.src = type === 'backdrop' 
+                        ? 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?q=80&w=2070&auto=format&fit=crop' 
+                        : 'https://images.unsplash.com/photo-1594909122845-11baa439b7bf?q=80&w=2070&auto=format&fit=crop';
+                };
+            },
+
+            renderHome: () => {
+                const movies = App.state.movies;
+                if(movies.length === 0) return;
+                
+                const hero = movies.find(m => m.trending) || movies[0];
+                const heroImg = document.getElementById('hero-img');
+                
+                // Assign Src
+                heroImg.src = hero.backdrop;
+                // If Error -> Call Smart Fixer
+                heroImg.onerror = function() { App.fixImage(this, 'backdrop', hero.genre || 'cinema'); };
+                
+                document.getElementById('hero-title').innerText = hero.title;
+                document.getElementById('hero-meta').innerText = `${hero.genre} • 2024`;
+                App.state.heroId = hero.id;
+
+                const tRow = document.getElementById('trending-row');
+                const nRow = document.getElementById('new-row');
+                
+                const card = (m) => `
+                    <div onclick="App.openDetails('${m.id}')" class="flex-none w-[130px] snap-center cursor-pointer group active-tap">
+                        <div class="poster-aspect rounded-xl overflow-hidden relative shadow-lg bg-[#111] border border-white/5">
+                            <img src="${m.poster}" class="w-full h-full object-cover transform transition duration-500 group-hover:scale-110" 
+                                 onerror="App.fixImage(this, 'poster', '${m.genre}')">
+                        </div>
+                    </div>`;
+
+                tRow.innerHTML = movies.filter(m => m.trending).map(card).join('');
+                nRow.innerHTML = movies.map(card).join('');
+            },
+
+            openDetails: (id) => {
+                const m = App.state.movies.find(x => x.id === id);
+                if(!m) return;
+                
+                const img = document.getElementById('detail-img');
+                img.src = m.backdrop;
+                img.onerror = function() { App.fixImage(this, 'backdrop', m.genre); };
+
+                document.getElementById('detail-title').innerText = m.title;
+                document.getElementById('detail-genre').innerText = m.genre;
+                
+                document.getElementById('detail-play-btn').onclick = () => App.playMovie(m.url, m.title);
+                
+                const listBtn = document.getElementById('detail-list-btn');
+                const inList = App.state.watchlist.includes(id);
+                listBtn.innerHTML = inList ? "Added to List" : "Add to My List";
+                listBtn.onclick = () => App.toggleWatchlist(id, listBtn);
+
+                document.getElementById('detail-modal').classList.remove('hidden');
+            },
+
+            closeDetails: () => document.getElementById('detail-modal').classList.add('hidden'),
+
+            playMovie: (url, title) => {
+                const v = document.getElementById('main-video');
+                v.src = url;
+                document.getElementById('player-title').innerText = title;
+                document.getElementById('video-player-modal').classList.remove('hidden');
+                v.play();
+                v.onclick = () => v.paused ? v.play() : v.pause();
+            },
+            closePlayer: () => { const v = document.getElementById('main-video'); v.pause(); v.src=''; document.getElementById('video-player-modal').classList.add('hidden'); },
+
+            nav: (page) => {
+                document.querySelectorAll('.nav-btn').forEach(btn => {
+                    btn.classList.remove('text-brand-500', 'text-gray-600');
+                    btn.classList.add(btn.dataset.target === page ? 'text-brand-500' : 'text-gray-600');
+                });
+                ['home', 'watchlist', 'search', 'profile'].forEach(p => document.getElementById(`page-${p}`).classList.add('hidden'));
+                document.getElementById(`page-${page}`).classList.remove('hidden');
+                document.getElementById(`page-${page}`).classList.add('animate-fade-in');
+            },
+
+            toggleWatchlist: (id, btn) => {
+                const idx = App.state.watchlist.indexOf(id);
+                if(idx > -1) App.state.watchlist.splice(idx, 1); else App.state.watchlist.push(id);
+                localStorage.setItem('ott_watchlist', JSON.stringify(App.state.watchlist));
+                btn.innerText = idx > -1 ? "Add to My List" : "Added to List";
+                App.renderWatchlist();
+                App.showToast(idx > -1 ? "Removed" : "Added");
+            },
+
+            renderWatchlist: () => {
+                const g = document.getElementById('watchlist-grid');
+                g.innerHTML = '';
+                document.getElementById('watchlist-empty').classList.toggle('hidden', App.state.watchlist.length > 0);
+                App.state.watchlist.forEach(id => {
+                    const m = App.state.movies.find(x => x.id === id);
+                    if(m) g.innerHTML += `<div onclick="App.openDetails('${m.id}')" class="poster-aspect rounded-lg overflow-hidden bg-[#111] border border-white/5"><img src="${m.poster}" class="w-full h-full object-cover" onerror="App.fixImage(this, 'poster', '${m.genre}')"></div>`;
+                });
+            },
+
+            handleSearch: (q) => {
+                const r = document.getElementById('search-results');
+                r.innerHTML = '';
+                if(!q) return;
+                App.state.movies.filter(m => m.title.toLowerCase().includes(q.toLowerCase())).forEach(m => {
+                    r.innerHTML += `<div onclick="App.openDetails('${m.id}')" class="bg-[#111] border border-white/5 rounded-lg overflow-hidden aspect-video relative"><img src="${m.backdrop}" class="w-full h-full object-cover opacity-80" onerror="App.fixImage(this, 'backdrop', '${m.genre}')"><p class="absolute bottom-2 left-2 font-bold text-xs shadow-black drop-shadow-md">${m.title}</p></div>`;
+                });
+            },
+
+            showToast: (msg) => {
+                const t = document.getElementById('toast');
+                document.getElementById('toast-msg').innerText = msg;
+                t.style.opacity = '1'; t.style.transform = 'translate(-50%, 0)';
+                setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translate(-50%, -40px)'; }, 2000);
+            }
+        };
+
+        window.onload = App.init;
+    </script>
+</body>
+</html>
