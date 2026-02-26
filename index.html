@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamFlix - Premium Anime</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { sans:['Inter', 'sans-serif'] }, colors: { bgDark: '#141414', primary: '#E50914' } } } }
+    </script>
+    <style>
+        body { background-color: #141414; color: white; overflow-x: hidden; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .content-card { transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+        .content-card:hover { transform: scale(1.05) translateY(-5px); z-index: 10; }
+        .skeleton { background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%); background-size: 200% 100%; animation: loading 1.5s infinite; }
+        @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .glass { background: rgba(20, 20, 20, 0.7); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+    </style>
+</head>
+<body class="antialiased pb-16 md:pb-0">
+
+    <!-- TOP NAVIGATION -->
+    <header class="fixed top-0 w-full z-50 transition-all duration-300 glass" id="navbar">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center cursor-pointer" onclick="navigateTo('home')">
+                    <span class="text-primary text-2xl font-bold tracking-tighter">STREAMFLIX</span>
+                </div>
+                <div class="flex items-center space-x-4 flex-1 justify-end">
+                    <div class="relative w-full max-w-xs hidden md:block group">
+                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" id="desktop-search" placeholder="Search anime (e.g., Naruto)..." 
+                            class="w-full bg-black/50 border border-gray-700 text-white text-sm rounded-full focus:ring-primary focus:border-primary block pl-10 p-2">
+                    </div>
+                    <button class="md:hidden text-gray-300 hover:text-white" onclick="navigateTo('search')">
+                        <i class="fas fa-search text-xl"></i>
+                    </button>
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-purple-600 border border-gray-600"></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main id="app-container" class="min-h-screen">
+        
+        <!-- ================= HOME VIEW ================= -->
+        <section id="view-home" class="fade-in block pt-20 pb-10">
+            <div id="hero-banner" class="relative w-full h-[50vh] bg-cover bg-center skeleton max-w-7xl mx-auto rounded-lg overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-t from-[#141414] via-transparent to-transparent"></div>
+                <div class="absolute bottom-[10%] left-0 w-full px-4 md:px-12">
+                    <h1 id="hero-title" class="text-3xl md:text-5xl font-bold mb-4 drop-shadow-lg text-transparent">Loading...</h1>
+                    <button id="hero-play-btn" class="bg-white text-black px-6 py-2 rounded font-bold shadow-lg hidden">
+                        <i class="fas fa-play mr-2"></i> Play Now
+                    </button>
+                </div>
+            </div>
+            <div class="px-4 md:px-12 mt-8 space-y-10 max-w-7xl mx-auto" id="home-rows-container"></div>
+        </section>
+
+        <!-- ================= SEARCH VIEW ================= -->
+        <section id="view-search" class="fade-in hidden pt-24 px-4 md:px-12 min-h-screen">
+            <div class="max-w-7xl mx-auto">
+                <div class="relative w-full mb-8 md:hidden">
+                    <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    <input type="text" id="mobile-search" placeholder="Search (Try: Naruto, One Piece)..." 
+                        class="w-full bg-gray-800 border border-gray-700 text-white text-lg rounded-lg block pl-12 p-4">
+                </div>
+                
+                <h2 class="text-2xl font-semibold mb-6 text-gray-200 border-l-4 border-primary pl-3" id="search-title">Discover</h2>
+                <div id="search-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"></div>
+                
+                <div id="search-empty" class="hidden flex-col items-center justify-center py-20 text-gray-400">
+                    <i class="fas fa-ghost text-6xl mb-4 text-gray-600"></i>
+                    <p class="text-xl text-center" id="search-empty-msg">No results found.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= DETAIL VIEW ================= -->
+        <section id="view-detail" class="fade-in hidden">
+            <div id="detail-backdrop" class="relative w-full h-[50vh] bg-cover bg-center">
+                <div class="absolute inset-0 bg-gradient-to-t from-[#141414] via-[#141414]/80 to-transparent"></div>
+            </div>
+            <div class="max-w-7xl mx-auto px-4 md:px-12 -mt-32 relative z-10">
+                <div class="flex flex-col md:flex-row gap-8">
+                    <div class="w-48 md:w-64 mx-auto md:mx-0 skeleton rounded-lg shadow-2xl h-72 md:h-96 bg-gray-800" id="detail-poster"></div>
+                    <div class="flex-1 text-center md:text-left pt-4">
+                        <h1 class="text-3xl md:text-5xl font-bold mb-3 text-white" id="detail-title">Loading...</h1>
+                        <div class="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-6" id="detail-meta"></div>
+                        <p class="text-gray-300 mb-8 max-w-3xl text-sm" id="detail-desc"></p>
+                    </div>
+                </div>
+                <div class="mt-12 mb-16">
+                    <h3 class="text-2xl font-semibold mb-6 border-l-4 border-primary pl-3">Episodes</h3>
+                    <div id="episodes-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= PLAYER VIEW ================= -->
+        <section id="view-player" class="fade-in hidden h-screen w-full bg-black flex flex-col pt-16 md:pt-20">
+            <div class="max-w-6xl mx-auto w-full flex-1 flex flex-col px-0 md:px-4">
+                <div class="flex justify-between items-center px-4 py-3 bg-gray-900 rounded-t-lg">
+                    <button onclick="navigateTo('detail')" class="text-gray-400 hover:text-white transition flex items-center">
+                        <i class="fas fa-arrow-left mr-2"></i> Back
+                    </button>
+                    <h2 class="text-lg font-semibold truncate max-w-[60%]" id="player-title">Player</h2>
+                </div>
+
+                <div class="relative w-full bg-black aspect-video flex items-center justify-center" id="video-container">
+                    <video id="main-video-player" class="w-full h-full object-contain" controls crossorigin playsinline></video>
+                    <div id="player-loader" class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-10">
+                        <i class="fas fa-circle-notch fa-spin text-primary text-4xl mb-4"></i>
+                        <span class="text-gray-300 mt-2" id="player-status">Fetching streaming link...</span>
+                    </div>
+                </div>
+
+                <div class="bg-gray-900 p-4 rounded-b-lg flex flex-col md:flex-row justify-between gap-4">
+                    <select id="server-selector" class="bg-gray-800 text-white border border-gray-700 rounded p-2 text-sm w-full md:w-auto"></select>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- MOBILE BOTTOM NAV -->
+    <nav class="md:hidden fixed bottom-0 w-full bg-gray-900 border-t border-gray-800 z-50">
+        <div class="flex justify-around items-center h-16">
+            <button onclick="navigateTo('home')" class="flex flex-col items-center text-gray-400 w-full"><i class="fas fa-home mb-1"></i><span class="text-[10px]">Home</span></button>
+            <button onclick="navigateTo('search')" class="flex flex-col items-center text-gray-400 w-full"><i class="fas fa-search mb-1"></i><span class="text-[10px]">Search</span></button>
+        </div>
+    </nav>
+
+    <!-- ================= JAVASCRIPT LOGIC ================= -->
+    <script>
+        // SMART CONFIGURATION - Tries new URL first, then old URL if failed.
+        const API_PATHS = {
+            search: "/animesearch?query=",
+            detail: "/animedetail?url=",
+            download: "/animedownload?url="
+        };
+
+        const AppState = {
+            currentView: 'home', currentAnimeDetail: null, currentEpisodeList:[], currentEpisodeIndex: -1, hlsInstance: null
+        };
+
+        const Views = {
+            home: document.getElementById('view-home'), search: document.getElementById('view-search'),
+            detail: document.getElementById('view-detail'), player: document.getElementById('view-player')
+        };
+
+        function navigateTo(viewId, params = null) {
+            window.scrollTo(0, 0);
+            Object.values(Views).forEach(v => v.classList.add('hidden'));
+            Views[viewId].classList.remove('hidden');
+            AppState.currentView = viewId;
+
+            if (viewId === 'home') renderHome();
+            if (viewId === 'search') { params?.query ? fetchAndRenderSearch(params.query) : renderSearchDefault(); }
+            if (viewId === 'detail' && params?.url) fetchAndRenderDetail(params.url);
+            if (viewId === 'player' && params) setupPlayer(params);
+            
+            if (viewId !== 'player' && AppState.hlsInstance) {
+                AppState.hlsInstance.destroy();
+                document.getElementById('main-video-player').pause();
+            }
+        }
+
+        // ================= 🔥 UNKILLABLE SMART FETCHER 🔥 =================
+        // Ye CORS, Cloudflare block, aur dono domains ko ek sath handle karega!
+        async function safeFetch(pathPart) {
+            // Tumhare dono domain add kar diye hain (x wala aur z wala, aur bina /anime path ke bhi)
+            const baseUrlsToTry =[
+                "https://apis.prexzyvilla.site/anime",
+                "https://apis.prexzyvilla.site",
+                "https://apis.prezzyvilla.site/anime",
+                "https://apis.prezzyvilla.site"
+            ];
+
+            for (let baseUrl of baseUrlsToTry) {
+                const fullUrl = baseUrl + pathPart;
+                console.log(`[🔍 Attempting]: ${fullUrl}`);
+
+                // 1st Priority: ALLORIGINS (Best JSON wrapper, Bypasses CORS perfectly)
+                try {
+                    const allOriginsUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(fullUrl)}`;
+                    const res = await fetch(allOriginsUrl);
+                    const data = await res.json();
+                    
+                    if (data.contents) {
+                        // Check if API returned Cloudflare HTML instead of JSON
+                        if (data.contents.trim().startsWith('<')) {
+                            console.warn(`[⚠️ HTML Returned] Server blocked request or 404 on ${fullUrl}`);
+                            continue; // Try next URL
+                        }
+                        const parsedJSON = JSON.parse(data.contents);
+                        if (!parsedJSON.error) {
+                            console.log(`[✅ SUCCESS via AllOrigins]: Data loaded!`);
+                            return parsedJSON;
+                        }
+                    }
+                } catch (e) {}
+
+                // 2nd Priority: DIRECT FETCH
+                try {
+                    const res = await fetch(fullUrl);
+                    if (res.ok) {
+                        const text = await res.text();
+                        if (!text.trim().startsWith('<')) {
+                            console.log(`[✅ SUCCESS via Direct Fetch]: Data loaded!`);
+                            return JSON.parse(text);
+                        }
+                    }
+                } catch (e) {}
+            }
+            
+            console.error("🚨 ALL FETCH ATTEMPTS FAILED. API is either completely down or spelling is wrong.");
+            return null; // Handle smoothly in UI
+        }
+
+        function normalizeArray(data) {
+            if (!data) return [];
+            let arr = Array.isArray(data) ? data : (data.results || data.data ||[]);
+            return arr.map(item => ({
+                id: item.id || item.url || item.link, 
+                title: item.title || item.name || item.animeTitle || 'Unknown Title',
+                image: item.image || item.img || item.animeImg || 'https://via.placeholder.com/300x450?text=No+Image',
+                url: item.url || item.id || item.link || item.animeId,
+                status: item.status || item.releaseDate || 'HD'
+            }));
+        }
+
+        function createCard(item, onClick) {
+            const div = document.createElement('div');
+            div.className = "content-card relative cursor-pointer w-full rounded-lg overflow-hidden bg-gray-800 aspect-[2/3]";
+            div.innerHTML = `
+                <img src="${item.image}" class="w-full h-full object-cover opacity-90 hover:opacity-100 transition" onerror="this.src='https://via.placeholder.com/300x450?text=No+Image'">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-2">
+                    <h4 class="text-white text-xs md:text-sm font-semibold truncate">${item.title}</h4>
+                    <p class="text-gray-400 text-[10px] mt-1">${item.status}</p>
+                </div>
+            `;
+            div.addEventListener('click', () => onClick(item));
+            return div;
+        }
+
+        // ================= VIEWS: HOME =================
+        async function renderHome() {
+            const container = document.getElementById('home-rows-container');
+            if (container.children.length > 0) return;
+
+            const category = { title: 'Trending Anime', query: 'Naruto' };
+            container.innerHTML = `<h2 class="text-xl font-semibold mb-4 border-l-4 border-primary pl-3">${category.title}</h2><div id="home-row" class="flex overflow-x-auto gap-4 scrollbar-hide py-2 pb-6"></div>`;
+            
+            const rowDiv = document.getElementById('home-row');
+            for(let i=0; i<6; i++) rowDiv.innerHTML += `<div class="w-36 md:w-48 aspect-[2/3] skeleton rounded-lg flex-shrink-0"></div>`;
+
+            // Hit Safe Fetch Engine
+            const data = await safeFetch(`${API_PATHS.search}${encodeURIComponent(category.query)}`);
+            const items = normalizeArray(data).slice(0, 10);
+            
+            rowDiv.innerHTML = '';
+            if(items.length === 0) {
+                rowDiv.innerHTML = '<p class="text-gray-500">Could not load items from API.</p>';
+                return;
+            }
+
+            items.forEach(item => {
+                const wrapper = document.createElement('div');
+                wrapper.className = "w-36 md:w-48 flex-shrink-0";
+                wrapper.appendChild(createCard(item, (selected) => navigateTo('detail', { url: selected.url })));
+                rowDiv.appendChild(wrapper);
+            });
+
+            // Set Banner
+            const banner = document.getElementById('hero-banner');
+            banner.classList.remove('skeleton');
+            banner.style.backgroundImage = `url('${items[0].image}')`;
+            document.getElementById('hero-title').innerText = items[0].title;
+            document.getElementById('hero-title').classList.remove('text-transparent');
+            const playBtn = document.getElementById('hero-play-btn');
+            playBtn.classList.remove('hidden');
+            playBtn.onclick = () => navigateTo('detail', { url: items[0].url });
+        }
+
+        // ================= VIEWS: SEARCH =================
+        function renderSearchDefault() {
+            document.getElementById('search-grid').innerHTML = '';
+            document.getElementById('search-empty').classList.remove('hidden');
+            document.getElementById('search-empty-msg').innerText = "Type above to search anime...";
+        }
+
+        async function fetchAndRenderSearch(query) {
+            if(!query.trim()) return renderSearchDefault();
+            
+            const grid = document.getElementById('search-grid');
+            const emptyState = document.getElementById('search-empty');
+            document.getElementById('search-title').innerText = `Results for "${query}"`;
+            emptyState.classList.add('hidden');
+            
+            grid.innerHTML = '';
+            for(let i=0; i<10; i++) grid.innerHTML += `<div class="aspect-[2/3] w-full skeleton rounded-lg"></div>`;
+
+            // Sabse Pehle Search API chalegi
+            const data = await safeFetch(`${API_PATHS.search}${encodeURIComponent(query)}`);
+            const items = normalizeArray(data);
+            
+            grid.innerHTML = '';
+            if(!items || items.length === 0) {
+                emptyState.classList.remove('hidden');
+                document.getElementById('search-empty-msg').innerHTML = `No results found. API might be down.`;
+            } else {
+                items.forEach(item => {
+                    grid.appendChild(createCard(item, (selected) => {
+                        navigateTo('detail', { url: selected.url || selected.id });
+                    }));
+                });
+            }
+        }
+
+        let searchTimeout;
+        const handleSearchInput = (e) => {
+            clearTimeout(searchTimeout);
+            const val = e.target.value;
+            document.getElementById('desktop-search').value = val;
+            document.getElementById('mobile-search').value = val;
+            searchTimeout = setTimeout(() => {
+                if (val.length > 2) navigateTo('search', { query: val });
+            }, 800);
+        };
+        document.getElementById('desktop-search').addEventListener('input', handleSearchInput);
+        document.getElementById('mobile-search').addEventListener('input', handleSearchInput);
+
+
+        // ================= VIEWS: DETAIL API =================
+        async function fetchAndRenderDetail(url) {
+            document.getElementById('detail-backdrop').style.backgroundImage = 'none';
+            document.getElementById('detail-poster').innerHTML = '<div class="w-full h-full skeleton rounded-lg"></div>';
+            document.getElementById('detail-title').innerText = 'Loading...';
+            document.getElementById('detail-desc').innerText = '';
+            document.getElementById('episodes-container').innerHTML = '<div class="w-full h-16 skeleton rounded-lg"></div>';
+            
+            // Detail API
+            const rawData = await safeFetch(`${API_PATHS.detail}${encodeURIComponent(url)}`);
+            
+            if(!rawData || (Array.isArray(rawData) && rawData.length === 0)) {
+                document.getElementById('detail-title').innerText = 'Data Not Found';
+                document.getElementById('episodes-container').innerHTML = '';
+                return;
+            }
+
+            const data = Array.isArray(rawData) ? rawData[0] : rawData;
+            const title = data.title || data.name || data.animeTitle || 'Unknown Title';
+            const image = data.image || data.img || data.animeImg || '';
+            const desc = data.description || data.synopsis || data.desc || 'No description available.';
+            const episodes = data.episodes || data.episodesList ||[];
+
+            AppState.currentAnimeDetail = { title, image, url };
+            AppState.currentEpisodeList = episodes; 
+
+            document.getElementById('detail-backdrop').style.backgroundImage = `url('${image}')`;
+            document.getElementById('detail-poster').innerHTML = '';
+            document.getElementById('detail-poster').style.backgroundImage = `url('${image}')`;
+            document.getElementById('detail-poster').style.backgroundSize = 'cover';
+            document.getElementById('detail-title').innerText = title;
+            document.getElementById('detail-desc').innerText = desc;
+            
+            const epContainer = document.getElementById('episodes-container');
+            epContainer.innerHTML = '';
+            
+            if (episodes.length === 0) epContainer.innerHTML = `<p class="text-gray-500">No episodes found.</p>`;
+
+            episodes.forEach((ep, index) => {
+                const epUrl = ep.url || ep.id || ep.link || ep.episodeId;
+                const epTitle = ep.title || ep.name || `Episode ${ep.number || index + 1}`;
+                
+                const btn = document.createElement('button');
+                btn.className = "flex items-center justify-between p-4 bg-gray-800 hover:bg-gray-700 rounded-lg text-left";
+                btn.innerHTML = `<span class="font-medium text-gray-200 truncate"><span class="text-gray-400 mr-2">${index+1}</span> ${epTitle}</span> <i class="fas fa-play text-primary"></i>`;
+                btn.onclick = () => navigateTo('player', { episodeUrl: epUrl, index: index, title: epTitle });
+                epContainer.appendChild(btn);
+            });
+        }
+
+
+        // ================= VIEWS: DOWNLOAD/PLAYER API =================
+        async function setupPlayer({ episodeUrl, index, title }) {
+            const video = document.getElementById('main-video-player');
+            const loader = document.getElementById('player-loader');
+            const statusTxt = document.getElementById('player-status');
+            const serverSelect = document.getElementById('server-selector');
+            
+            AppState.currentEpisodeIndex = index;
+            document.getElementById('player-title').innerText = `${AppState.currentAnimeDetail?.title || 'Episode'} - ${title}`;
+            
+            loader.classList.remove('hidden');
+            statusTxt.innerText = "Extracting link...";
+            video.pause(); video.removeAttribute('src');
+            serverSelect.innerHTML = '<option value="">Loading Sources...</option>';
+            
+            // Download API
+            const rawData = await safeFetch(`${API_PATHS.download}${encodeURIComponent(episodeUrl)}`);
+            
+            let servers =[];
+            if (rawData) {
+                if (Array.isArray(rawData)) servers = rawData;
+                else if (rawData.sources) servers = rawData.sources;
+                else if (rawData.servers) servers = rawData.servers;
+                else if (rawData.data) servers = Array.isArray(rawData.data) ? rawData.data : [rawData.data];
+                else servers = [rawData]; 
+            }
+
+            const validServers = servers.filter(s => s.url || s.file || s.link);
+
+            if(validServers.length === 0) {
+                statusTxt.innerText = "Video source blocked by API or not found.";
+                statusTxt.classList.add('text-red-500');
+                loader.querySelector('i').className = "fas fa-exclamation-triangle text-red-500 text-4xl mb-4";
+                return;
+            }
+
+            serverSelect.innerHTML = '';
+            validServers.forEach((srv, i) => {
+                const opt = document.createElement('option');
+                opt.value = srv.url || srv.file || srv.link; 
+                opt.innerText = srv.quality || srv.name || srv.server || `Source Server ${i+1}`;
+                serverSelect.appendChild(opt);
+            });
+
+            playVideoSource(validServers[0].url || validServers[0].file || validServers[0].link);
+            serverSelect.onchange = (e) => playVideoSource(e.target.value);
+        }
+
+        function playVideoSource(url) {
+            const video = document.getElementById('main-video-player');
+            const loader = document.getElementById('player-loader');
+            if (AppState.hlsInstance) { AppState.hlsInstance.destroy(); AppState.hlsInstance = null; }
+
+            loader.classList.remove('hidden');
+            document.getElementById('player-status').innerText = "Buffering stream...";
+
+            if (url.includes('.m3u8')) {
+                if (Hls.isSupported()) {
+                    const hls = new Hls(); AppState.hlsInstance = hls;
+                    hls.loadSource(url); hls.attachMedia(video);
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => { loader.classList.add('hidden'); video.play().catch(()=>{}); });
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    video.src = url; video.addEventListener('loadedmetadata', () => { loader.classList.add('hidden'); video.play().catch(()=>{}); });
+                }
+            } else {
+                video.src = url; video.onloadeddata = () => { loader.classList.add('hidden'); video.play().catch(()=>{}); };
+            }
+        }
+
+        window.onload = () => navigateTo('home');
+    </script>
+</body>
+</html>
